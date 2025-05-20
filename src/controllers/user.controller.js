@@ -3,7 +3,7 @@ const { getDb } = require("../config/database")
 const { ObjectId } = require("mongodb")
 
 /**
- * Get user profile
+ * Lấy thông tin hồ sơ người dùng
  */
 exports.getUserProfile = async (req, res, next) => {
   try {
@@ -14,11 +14,11 @@ exports.getUserProfile = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "Không tìm thấy người dùng",
       })
     }
 
-    // Remove sensitive information
+    // Loại bỏ thông tin nhạy cảm
     const { password, ...userWithoutPassword } = user
 
     res.status(200).json({
@@ -31,7 +31,7 @@ exports.getUserProfile = async (req, res, next) => {
 }
 
 /**
- * Update user profile
+ * Cập nhật hồ sơ người dùng
  */
 exports.updateUserProfile = async (req, res, next) => {
   try {
@@ -50,7 +50,7 @@ exports.updateUserProfile = async (req, res, next) => {
     if (result.matchedCount === 0) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "Không tìm thấy người dùng",
       })
     }
 
@@ -59,7 +59,7 @@ exports.updateUserProfile = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: "Profile updated successfully",
+      message: "Cập nhật hồ sơ thành công",
       data: userWithoutPassword,
     })
   } catch (error) {
@@ -68,7 +68,7 @@ exports.updateUserProfile = async (req, res, next) => {
 }
 
 /**
- * Change password
+ * Đổi mật khẩu
  */
 exports.changePassword = async (req, res, next) => {
   try {
@@ -78,7 +78,7 @@ exports.changePassword = async (req, res, next) => {
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
         success: false,
-        message: "Current password and new password are required",
+        message: "Cần nhập mật khẩu hiện tại và mật khẩu mới",
       })
     }
 
@@ -88,24 +88,24 @@ exports.changePassword = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "Không tìm thấy người dùng",
       })
     }
 
-    // Check if current password is correct
+    // Kiểm tra mật khẩu hiện tại có đúng không
     const isMatch = await bcrypt.compare(currentPassword, user.password)
     if (!isMatch) {
       return res.status(400).json({
         success: false,
-        message: "Current password is incorrect",
+        message: "Mật khẩu hiện tại không đúng",
       })
     }
 
-    // Hash new password
+    // Mã hóa mật khẩu mới
     const salt = await bcrypt.genSalt(10)
     const hashedPassword = await bcrypt.hash(newPassword, salt)
 
-    // Update password
+    // Cập nhật mật khẩu
     await db.collection("users").updateOne(
       { _id: new ObjectId(userId) },
       {
@@ -118,7 +118,7 @@ exports.changePassword = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: "Password changed successfully",
+      message: "Đổi mật khẩu thành công",
     })
   } catch (error) {
     next(error)
@@ -126,7 +126,7 @@ exports.changePassword = async (req, res, next) => {
 }
 
 /**
- * Get all users (admin only)
+ * Lấy danh sách tất cả người dùng (chỉ dành cho admin)
  */
 exports.getAllUsers = async (req, res, next) => {
   try {
@@ -168,7 +168,7 @@ exports.getAllUsers = async (req, res, next) => {
 }
 
 /**
- * Get user by ID (admin only)
+ * Lấy thông tin người dùng theo ID (chỉ dành cho admin)
  */
 exports.getUserById = async (req, res, next) => {
   try {
@@ -180,11 +180,11 @@ exports.getUserById = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "Không tìm thấy người dùng",
       })
     }
 
-    // Remove sensitive information
+    // Loại bỏ thông tin nhạy cảm
     const { password, ...userWithoutPassword } = user
 
     res.status(200).json({
@@ -197,7 +197,7 @@ exports.getUserById = async (req, res, next) => {
 }
 
 /**
- * Update user (admin only)
+ * Cập nhật thông tin người dùng (chỉ dành cho admin)
  */
 exports.updateUser = async (req, res, next) => {
   try {
@@ -219,7 +219,7 @@ exports.updateUser = async (req, res, next) => {
     if (result.matchedCount === 0) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "Không tìm thấy người dùng",
       })
     }
 
@@ -228,7 +228,7 @@ exports.updateUser = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: "User updated successfully",
+      message: "Cập nhật người dùng thành công",
       data: userWithoutPassword,
     })
   } catch (error) {
@@ -237,7 +237,7 @@ exports.updateUser = async (req, res, next) => {
 }
 
 /**
- * Delete user (admin only)
+ * Xóa người dùng (chỉ dành cho admin)
  */
 exports.deleteUser = async (req, res, next) => {
   try {
@@ -249,13 +249,13 @@ exports.deleteUser = async (req, res, next) => {
     if (result.deletedCount === 0) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "Không tìm thấy người dùng",
       })
     }
 
     res.status(200).json({
       success: true,
-      message: "User deleted successfully",
+      message: "Xóa người dùng thành công",
     })
   } catch (error) {
     next(error)

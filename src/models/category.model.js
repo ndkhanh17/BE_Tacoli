@@ -10,7 +10,7 @@ const { ObjectId } = require("mongodb")
  *   imageUrl: String,
  *   isActive: Boolean,
  *   createdAt: Date,
- *   updatedAt: Date
+ *   updatedAt: Date,
  * }
  */
 

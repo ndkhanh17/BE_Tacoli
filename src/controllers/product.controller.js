@@ -1,50 +1,78 @@
-const { getDb } = require("../config/database")
 const { ObjectId } = require("mongodb")
-const productService = require("../services/product.service")
+const { getDb } = require("../config/database")
+const fs = require("fs")
+const path = require("path")
 
 /**
- * Get all products
+ * Lấy tất cả sản phẩm với các bộ lọc
  */
 exports.getAllProducts = async (req, res, next) => {
   try {
-    const { category, status, limit = 10, page = 1 } = req.query
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      category = "",
+      minPrice = 0,
+      maxPrice = Number.MAX_SAFE_INTEGER,
+      sort = "createdAt",
+      order = "desc",
+    } = req.query
 
+    const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit)
     const db = getDb()
-    const productsCollection = db.collection("products")
 
-    // Build query
+    // Xây dựng query
     const query = {}
 
+    // Lọc theo danh mục
     if (category) {
       query.category = category
     }
 
-    if (status) {
-      query.status = status
-    } else {
-      // By default, only return active products
-      query.status = "active"
+    // Lọc theo khoảng giá
+    query.price = {
+      $gte: Number.parseInt(minPrice),
+      $lte: Number.parseInt(maxPrice) || Number.MAX_SAFE_INTEGER,
     }
 
-    // Calculate pagination
-    const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit)
+    // Lọc theo từ khóa tìm kiếm
+    if (search) {
+      query.name = { $regex: search, $options: "i" }
+    }
 
-    // Get products
-    const products = await productsCollection.find(query).skip(skip).limit(Number.parseInt(limit)).toArray()
+    // Sắp xếp
+    const sortOptions = {}
+    sortOptions[sort] = order === "desc" ? -1 : 1
 
-    // Get total count for pagination
-    const total = await productsCollection.countDocuments(query)
+    // Thực hiện truy vấn
+    const products = await db
+      .collection("products")
+      .find(query)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(Number.parseInt(limit))
+      .toArray()
+
+    // Đếm tổng số sản phẩm thỏa mãn điều kiện
+    const total = await db.collection("products").countDocuments(query)
 
     res.status(200).json({
       success: true,
-      data: {
-        products,
-        pagination: {
-          total,
-          page: Number.parseInt(page),
-          limit: Number.parseInt(limit),
-          pages: Math.ceil(total / Number.parseInt(limit)),
+      data: products,
+      pagination: {
+        total,
+        page: Number.parseInt(page),
+        limit: Number.parseInt(limit),
+        pages: Math.ceil(total / Number.parseInt(limit)),
+      },
+      filters: {
+        category,
+        priceRange: {
+          min: Number.parseInt(minPrice),
+          max: Number.parseInt(maxPrice) || Number.MAX_SAFE_INTEGER,
         },
+        search,
       },
     })
   } catch (error) {
@@ -53,29 +81,83 @@ exports.getAllProducts = async (req, res, next) => {
 }
 
 /**
- * Get product by ID
+ * Lấy danh sách các danh mục sản phẩm
+ */
+exports.getProductCategories = async (req, res, next) => {
+  try {
+    const db = getDb()
+
+    // Lấy danh sách các danh mục duy nhất từ sản phẩm
+    const categories = await db.collection("products").distinct("category")
+
+    res.status(200).json({
+      success: true,
+      data: categories,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+/**
+ * Lấy khoảng giá sản phẩm (min và max)
+ */
+exports.getProductPriceRange = async (req, res, next) => {
+  try {
+    const db = getDb()
+
+    // Lấy sản phẩm có giá thấp nhất
+    const minPriceProduct = await db
+      .collection("products")
+      .find({}, { projection: { price: 1 } })
+      .sort({ price: 1 })
+      .limit(1)
+      .toArray()
+
+    // Lấy sản phẩm có giá cao nhất
+    const maxPriceProduct = await db
+      .collection("products")
+      .find({}, { projection: { price: 1 } })
+      .sort({ price: -1 })
+      .limit(1)
+      .toArray()
+
+    const minPrice = minPriceProduct.length > 0 ? minPriceProduct[0].price : 0
+    const maxPrice = maxPriceProduct.length > 0 ? maxPriceProduct[0].price : 0
+
+    res.status(200).json({
+      success: true,
+      data: {
+        min: minPrice,
+        max: maxPrice,
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+/**
+ * Lấy sản phẩm theo ID
  */
 exports.getProductById = async (req, res, next) => {
   try {
     const { id } = req.params
 
-    const db = getDb()
-    const productsCollection = db.collection("products")
-
-    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid product ID",
+        message: "ID sản phẩm không hợp lệ",
       })
     }
 
-    const product = await productsCollection.findOne({ _id: new ObjectId(id) })
+    const db = getDb()
+    const product = await db.collection("products").findOne({ _id: new ObjectId(id) })
 
     if (!product) {
       return res.status(404).json({
         success: false,
-        message: "Product not found",
+        message: "Không tìm thấy sản phẩm",
       })
     }
 
@@ -89,126 +171,45 @@ exports.getProductById = async (req, res, next) => {
 }
 
 /**
- * Get products by category
- */
-exports.getProductsByCategory = async (req, res, next) => {
-  try {
-    const { categoryId } = req.params
-    const { limit = 10, page = 1 } = req.query
-
-    const db = getDb()
-    const productsCollection = db.collection("products")
-
-    // Build query
-    const query = {
-      category: categoryId,
-      status: "active",
-    }
-
-    // Calculate pagination
-    const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit)
-
-    // Get products
-    const products = await productsCollection.find(query).skip(skip).limit(Number.parseInt(limit)).toArray()
-
-    // Get total count for pagination
-    const total = await productsCollection.countDocuments(query)
-
-    res.status(200).json({
-      success: true,
-      data: {
-        products,
-        pagination: {
-          total,
-          page: Number.parseInt(page),
-          limit: Number.parseInt(limit),
-          pages: Math.ceil(total / Number.parseInt(limit)),
-        },
-      },
-    })
-  } catch (error) {
-    next(error)
-  }
-}
-
-/**
- * Search products
- */
-exports.searchProducts = async (req, res, next) => {
-  try {
-    const { q, category, limit = 10, page = 1 } = req.query
-
-    const db = getDb()
-    const productsCollection = db.collection("products")
-
-    // Build query
-    const query = { status: "active" }
-
-    if (q) {
-      query.$or = [{ name: { $regex: q, $options: "i" } }, { description: { $regex: q, $options: "i" } }]
-    }
-
-    if (category) {
-      query.category = category
-    }
-
-    // Calculate pagination
-    const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit)
-
-    // Get products
-    const products = await productsCollection.find(query).skip(skip).limit(Number.parseInt(limit)).toArray()
-
-    // Get total count for pagination
-    const total = await productsCollection.countDocuments(query)
-
-    res.status(200).json({
-      success: true,
-      data: {
-        products,
-        pagination: {
-          total,
-          page: Number.parseInt(page),
-          limit: Number.parseInt(limit),
-          pages: Math.ceil(total / Number.parseInt(limit)),
-        },
-      },
-    })
-  } catch (error) {
-    next(error)
-  }
-}
-
-/**
- * Create product
+ * Tạo sản phẩm mới
  */
 exports.createProduct = async (req, res, next) => {
   try {
-    const { name, description, price, category, stock, image, status = "active" } = req.body
+    const { name, description, price, discountPrice, category, images, stock, isActive = true } = req.body
+
+    // Kiểm tra dữ liệu đầu vào
+    if (!name || !price || !category) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng cung cấp đầy đủ thông tin: tên, giá và danh mục sản phẩm",
+      })
+    }
 
     const db = getDb()
-    const productsCollection = db.collection("products")
 
-    // Create new product
+    // Tạo sản phẩm mới
     const newProduct = {
       name,
-      description,
+      description: description || "",
       price: Number.parseFloat(price),
+      discountPrice: discountPrice ? Number.parseFloat(discountPrice) : Number.parseFloat(price),
       category,
-      stock: Number.parseInt(stock),
-      image,
-      status,
+      images: images || [], // Mảng các URL hình ảnh
+      stock: stock ? Number.parseInt(stock) : 0,
+      soldCount: 0,
+      isActive,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
 
-    const result = await productsCollection.insertOne(newProduct)
+    const result = await db.collection("products").insertOne(newProduct)
 
     res.status(201).json({
       success: true,
-      message: "Product created successfully",
+      message: "Tạo sản phẩm thành công",
       data: {
-        ...newProduct,
         _id: result.insertedId,
+        ...newProduct,
       },
     })
   } catch (error) {
@@ -217,55 +218,56 @@ exports.createProduct = async (req, res, next) => {
 }
 
 /**
- * Update product
+ * Cập nhật sản phẩm
  */
 exports.updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params
-    const { name, description, price, category, stock, image, status } = req.body
+    const updateData = req.body
 
-    const db = getDb()
-    const productsCollection = db.collection("products")
-
-    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid product ID",
+        message: "ID sản phẩm không hợp lệ",
       })
     }
 
-    // Check if product exists
-    const existingProduct = await productsCollection.findOne({ _id: new ObjectId(id) })
+    // Xử lý dữ liệu số
+    if (updateData.price) {
+      updateData.price = Number.parseFloat(updateData.price)
+    }
 
-    if (!existingProduct) {
+    if (updateData.discountPrice) {
+      updateData.discountPrice = Number.parseFloat(updateData.discountPrice)
+    }
+
+    if (updateData.stock) {
+      updateData.stock = Number.parseInt(updateData.stock)
+    }
+
+    // Thêm thời gian cập nhật
+    updateData.updatedAt = new Date()
+
+    const db = getDb()
+
+    // Lấy thông tin sản phẩm cũ để kiểm tra hình ảnh
+    const oldProduct = await db.collection("products").findOne({ _id: new ObjectId(id) })
+
+    if (!oldProduct) {
       return res.status(404).json({
         success: false,
-        message: "Product not found",
+        message: "Không tìm thấy sản phẩm",
       })
     }
 
-    // Update product
-    const updatedProduct = {
-      name: name || existingProduct.name,
-      description: description || existingProduct.description,
-      price: price ? Number.parseFloat(price) : existingProduct.price,
-      category: category || existingProduct.category,
-      stock: stock ? Number.parseInt(stock) : existingProduct.stock,
-      image: image || existingProduct.image,
-      status: status || existingProduct.status,
-      updatedAt: new Date(),
-    }
-
-    await productsCollection.updateOne({ _id: new ObjectId(id) }, { $set: updatedProduct })
+    const result = await db
+      .collection("products")
+      .findOneAndUpdate({ _id: new ObjectId(id) }, { $set: updateData }, { returnDocument: "after" })
 
     res.status(200).json({
       success: true,
-      message: "Product updated successfully",
-      data: {
-        ...updatedProduct,
-        _id: new ObjectId(id),
-      },
+      message: "Cập nhật sản phẩm thành công",
+      data: result,
     })
   } catch (error) {
     next(error)
@@ -273,39 +275,44 @@ exports.updateProduct = async (req, res, next) => {
 }
 
 /**
- * Delete product
+ * Xóa sản phẩm
  */
 exports.deleteProduct = async (req, res, next) => {
   try {
     const { id } = req.params
 
-    const db = getDb()
-    const productsCollection = db.collection("products")
-
-    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid product ID",
+        message: "ID sản phẩm không hợp lệ",
       })
     }
 
-    // Check if product exists
-    const existingProduct = await productsCollection.findOne({ _id: new ObjectId(id) })
+    const db = getDb()
 
-    if (!existingProduct) {
+    // Lấy thông tin sản phẩm để xóa hình ảnh
+    const product = await db.collection("products").findOne({ _id: new ObjectId(id) })
+
+    if (!product) {
       return res.status(404).json({
         success: false,
-        message: "Product not found",
+        message: "Không tìm thấy sản phẩm",
       })
     }
 
-    // Delete product (or set status to inactive)
-    await productsCollection.deleteOne({ _id: new ObjectId(id) })
+    // Xóa sản phẩm từ database
+    const result = await db.collection("products").deleteOne({ _id: new ObjectId(id) })
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy sản phẩm",
+      })
+    }
 
     res.status(200).json({
       success: true,
-      message: "Product deleted successfully",
+      message: "Xóa sản phẩm thành công",
     })
   } catch (error) {
     next(error)
