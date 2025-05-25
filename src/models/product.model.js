@@ -26,19 +26,18 @@ exports.createProduct = async (productData) => {
   const db = getDb()
 
   const newProduct = {
-  name: productData.name,
-  description: productData.description || "",
-  price: productData.price,
-  discountPrice: productData.discountPrice || productData.price,
-  category: productData.category,
-  images: productData.imageUrl ? [productData.imageUrl] : [], // 
-  stock: productData.stock || 0,
-  soldCount: 0,
-  isActive: productData.isActive !== undefined ? productData.isActive : true,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
-
+    name: productData.name,
+    description: productData.description || "",
+    price: productData.price,
+    discountPrice: productData.discountPrice || productData.price,
+    category: productData.category,
+    image: productData.image || "",
+    stock: productData.stock || 0,
+    soldCount: 0,
+    isActive: productData.isActive !== undefined ? productData.isActive : true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
   const result = await db.collection("products").insertOne(newProduct)
 

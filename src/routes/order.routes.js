@@ -5,7 +5,7 @@ const { authenticate, authorize } = require("../middlewares/auth")
 const { validateOrder } = require("../validations/order.validation")
 
 // Customer routes
-router.post("/", validateOrder, orderController.createOrder)
+router.post("/", authenticate, validateOrder, orderController.createOrder)
 router.get("/track/:orderId", orderController.trackOrder)
 
 // Protected routes (authenticated users)
@@ -16,5 +16,6 @@ router.get("/my-orders/:id", authenticate, orderController.getUserOrderById)
 router.get("/", authenticate, authorize(["admin"]), orderController.getAllOrders)
 router.get("/:id", authenticate, authorize(["admin"]), orderController.getOrderById)
 router.put("/:id/status", authenticate, authorize(["admin"]), orderController.updateOrderStatus)
+router.put('/:id', authenticate, authorize(['admin']), orderController.updateOrder)
 
 module.exports = router

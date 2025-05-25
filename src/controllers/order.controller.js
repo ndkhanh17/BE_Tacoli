@@ -335,6 +335,57 @@ exports.updateOrderStatus = async (req, res, next) => {
 }
 
 /**
+ * Update order (admin)
+ */
+exports.updateOrder = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const updateData = req.body
+
+    const db = getDb()
+    const ordersCollection = db.collection("orders")
+
+    // Validate ObjectId
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order ID",
+      })
+    }
+
+    // Find order
+    const order = await ordersCollection.findOne({ _id: new ObjectId(id) })
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      })
+    }
+
+    // Update order
+    await ordersCollection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          ...updateData,
+          updatedAt: new Date(),
+        },
+      },
+    )
+
+    const updatedOrder = await ordersCollection.findOne({ _id: new ObjectId(id) })
+
+    res.status(200).json({
+      success: true,
+      message: "Order updated successfully",
+      data: updatedOrder,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+/**
  * Helper function to calculate estimated delivery date
  */
 function getEstimatedDelivery(order) {

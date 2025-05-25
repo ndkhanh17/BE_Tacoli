@@ -10,7 +10,7 @@ exports.getAllProducts = async (req, res, next) => {
   try {
     const {
       page = 1,
-      limit = 10,
+      limit = 9,
       search = "",
       category = "",
       minPrice = 0,
@@ -175,7 +175,7 @@ exports.getProductById = async (req, res, next) => {
  */
 exports.createProduct = async (req, res, next) => {
   try {
-    const { name, description, price, discountPrice, category, images, stock, isActive = true } = req.body
+    const { name, description, price, discountPrice, category, image, stock, isActive = true } = req.body
 
     // Kiểm tra dữ liệu đầu vào
     if (!name || !price || !category) {
@@ -194,7 +194,7 @@ exports.createProduct = async (req, res, next) => {
       price: Number.parseFloat(price),
       discountPrice: discountPrice ? Number.parseFloat(discountPrice) : Number.parseFloat(price),
       category,
-      images: images || [], // Mảng các URL hình ảnh
+      image: image || "", // Lưu duy nhất 1 link ảnh
       stock: stock ? Number.parseInt(stock) : 0,
       soldCount: 0,
       isActive,

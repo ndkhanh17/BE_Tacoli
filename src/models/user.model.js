@@ -1,3 +1,4 @@
+
 const { getDb } = require("../config/database")
 const { ObjectId } = require("mongodb")
 const bcrypt = require("bcryptjs")
@@ -28,7 +29,7 @@ exports.createUser = async (userData) => {
   const hashedPassword = await bcrypt.hash(userData.password, salt)
 
   const newUser = {
-    name: userData.name,
+    name: userData.name|| "",
     email: userData.email,
     password: hashedPassword,
     phone: userData.phone || "",

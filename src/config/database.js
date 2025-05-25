@@ -32,7 +32,7 @@ async function connectToDatabase() {
  */
 async function initializeCollections() {
   // Create collections if they don't exist
-  const collections = ["users", "products", "categories", "orders", "posts", "roles"]
+  const collections = ["users", "products", "categories", "orders", "posts", "roles","payment",]
 
   for (const collectionName of collections) {
     const collectionExists = await db.listCollections({ name: collectionName }).hasNext()

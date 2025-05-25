@@ -9,6 +9,8 @@ const orderRoutes = require("./order.routes")
 const userRoutes = require("./user.routes")
 const postRoutes = require("./post.routes")
 const uploadRoutes = require("./upload.routes")
+const paymentRoutes = require("./payment.routes")
+const contactRoutes = require("./contact.routes")
 
 // Đăng ký routes
 router.use("/auth", authRoutes)
@@ -18,6 +20,8 @@ router.use("/orders", orderRoutes)
 router.use("/users", userRoutes)
 router.use("/posts", postRoutes)
 router.use("/upload", uploadRoutes)
+router.use("/payments", paymentRoutes)
+router.use("/contacts", contactRoutes)
 
 // Health check
 router.get("/health", (req, res) => {

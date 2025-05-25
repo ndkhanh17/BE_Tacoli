@@ -21,6 +21,9 @@ app.use(morgan("dev"))
 // Routes
 app.use("/api", routes)
 
+// Cho phép truy cập static file từ thư mục uploads
+app.use('/uploads', express.static('uploads'))
+
 // Error handling middleware
 app.use(errorHandler)
 
